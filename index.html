@@ -856,9 +856,11 @@
                 // Clear to transparent black (alpha = 0)
                 maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
 
-                // Draw the blur region as a solid opaque rectangle
+                // Draw the blur region as an oval (ellipse) to match face shape
                 maskCtx.fillStyle = '#fff';
-                maskCtx.fillRect(fx, fy, fw, fh);
+                maskCtx.beginPath();
+                maskCtx.ellipse(fx + fw / 2, fy + fh / 2, fw / 2, fh / 2, 0, 0, Math.PI * 2);
+                maskCtx.fill();
 
                 // 2. Feather the mask by Gaussian-blurring it
                 const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
