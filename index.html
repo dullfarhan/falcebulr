@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceShield — Automatic Face Blur</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --border: #1e1e2e;
+            --accent: #00e5a0;
+            --accent2: #7c6af7;
+            --text: #e8e8f0;
+            --muted: #5a5a72;
+            --danger: #ff4d6d;
+            --mono: 'DM Mono', monospace;
+            --display: 'Syne', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 229, 160, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 160, 0.03) 1px, transparent 1px);
+            background-size: 48px 48px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            position: relative;
+            z-index: 1;
+            padding: 32px 48px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-family: var(--display);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .status-pill {
+            font-size: 11px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--muted);
+            color: var(--muted);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .status-pill.ready {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .status-pill.working {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .status-pill.error-state {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        main {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        .hero-text {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .hero-text h1 {
+            font-family: var(--display);
+            font-size: clamp(36px, 6vw, 72px);
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: -2px;
+        }
+
+        .hero-text h1 em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .hero-text p {
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 14px;
+            max-width: 460px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.7;
+        }
+
+        .upload-zone {
+            border: 1.5px dashed var(--border);
+            border-radius: 16px;
+            padding: 64px 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(0, 229, 160, 0.04);
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(0, 229, 160, 0.06) 0%, transparent 65%);
+            pointer-events: none;
+        }
+
+        .upload-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: rgba(0, 229, 160, 0.1);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 24px;
+        }
+
+        .upload-zone h3 {
+            font-family: var(--display);
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .upload-zone p {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .upload-zone input {
+            display: none;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #00ffb3;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 229, 160, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--muted);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .canvas-wrapper {
+            display: none;
+            margin-top: 40px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .canvas-wrapper.visible {
+            display: block;
+        }
+
+        .canvas-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .canvas-toolbar .left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .canvas-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            background: repeating-conic-gradient(#161620 0% 25%, #0a0a0f 0% 50%) 0 0 / 20px 20px;
+            min-height: 200px;
+        }
+
+        canvas {
+            max-width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .log-panel {
+            margin-top: 32px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .log-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #logOutput {
+            padding: 16px 20px;
+            font-size: 12px;
+            line-height: 1.8;
+            color: var(--muted);
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 12px;
+        }
+
+        .log-time {
+            color: var(--accent2);
+            flex-shrink: 0;
+        }
+
+        .log-msg.success {
+            color: var(--accent);
+        }
+
+        .log-msg.info {
+            color: var(--text);
+        }
+
+        .log-msg.warn {
+            color: #ffa94d;
+        }
+
+        .log-msg.error {
+            color: var(--danger);
+        }
+
+        .instructions {
+            margin-top: 48px;
+            padding: 32px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .instructions h2 {
+            font-family: var(--display);
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .instructions h2::before {
+            content: '//';
+            color: var(--accent2);
+            font-family: var(--mono);
+            font-size: 14px;
+        }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(124, 106, 247, 0.15);
+            border: 1px solid rgba(124, 106, 247, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--accent2);
+            font-weight: 500;
+        }
+
+        .step-content {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--muted);
+        }
+
+        .step-content strong {
+            color: var(--text);
+        }
+
+        code {
+            font-family: var(--mono);
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            padding: 2px 7px;
+            border-radius: 5px;
+            color: var(--accent);
+        }
+
+        .face-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(0, 229, 160, 0.1);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            color: var(--accent);
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 32px;
+            justify-content: center;
+        }
+
+        .progress-wrap {
+            display: none;
+            height: 2px;
+            background: var(--border);
+            margin-top: 24px;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent2), var(--accent));
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">Face<span>Shield</span></div>
+        <div class="status-pill" id="statusPill">Initializing</div>
+    </header>
+
+    <main>
+        <div class="hero-text">
+            <h1>Blur faces<br><em>automatically.</em></h1>
+            <p>Upload any image — FaceShield detects every face using AI and applies a privacy blur exactly to the face
+                shape. All processing happens locally in your browser.</p>
+        </div>
+
+        <div class="upload-zone" id="dropZone">
+            <div class="upload-icon">📷</div>
+            <h3>Drop an image here</h3>
+            <p>or click to browse your files</p>
+            <input type="file" id="fileInput" accept="image/*">
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                ↑ Upload Image
+            </button>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="action-row">
+            <button class="btn btn-primary" id="blurBtn" disabled>⬡ Detect &amp; Blur Faces</button>
+            <button class="btn btn-secondary" id="downloadBtn" disabled>↓ Download Result</button>
+            <button class="btn btn-secondary" id="resetBtn" style="display:none">↺ Reset</button>
+        </div>
+
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <div class="canvas-toolbar">
+                <div class="left">
+                    <span class="dot"></span>
+                    <span id="imageLabel">image.jpg</span>
+                </div>
+                <span class="face-badge" id="faceBadge">0 faces</span>
+            </div>
+            <div class="canvas-container">
+                <canvas id="mainCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <div class="log-header"><span>▸</span> Console Output</div>
+            <div id="logOutput"></div>
+        </div>
+
+        <div class="instructions">
+            <h2>Setup Instructions</h2>
+
+            <div class="step">
+                <div class="step-num">01</div>
+                <div class="step-content">
+                    <strong>Download face-api.js model files</strong><br>
+                    Get both the <code>ssd_mobilenetv1</code> and <code>face_landmark_68</code> model weights from
+                    the official repository:
+                    <a href="https://github.com/justadudewhohacks/face-api.js/tree/master/weights"
+                        style="color:var(--accent2)" target="_blank">face-api.js weights on GitHub</a>.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">02</div>
+                <div class="step-content">
+                    <strong>Place models in a <code>/models</code> folder</strong><br>
+                    Create a folder named <code>models</code> in the same directory as this HTML file and copy all
+                    downloaded weight files into it. Both <code>ssd_mobilenetv1_model-*</code> and
+                    <code>face_landmark_68_model-*</code> files are required.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">03</div>
+                <div class="step-content">
+                    <strong>Serve via a local web server</strong><br>
+                    Browsers block <code>file://</code> requests. Use: <code>npx serve .</code>,
+                    <code>python3 -m http.server</code>, or VS Code Live Server. Then open
+                    <code>http://localhost:PORT/face-blur.html</code>.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">04</div>
+                <div class="step-content">
+                    <strong>CDN fallback (no local setup needed)</strong><br>
+                    If no local <code>/models</code> folder is found, the app automatically fetches both models from
+                    <code>https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/</code>. Just serve this file and it
+                    works out of the box.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">05</div>
+                <div class="step-content">
+                    <strong>Tuning constants</strong><br>
+                    Edit at the top of the <code>&lt;script&gt;</code>: <code>BLUR_RADIUS</code> (default 22) controls
+                    blur strength; <code>MIN_CONFIDENCE</code> (default 0.4) controls detection sensitivity;
+                    <code>FEATHER_RADIUS</code> (default 24) controls how soft the blur edges fade into the
+                    original image.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- face-api.js from CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script>
+        // ─── Configuration ───────────────────────────────────────────────────────────
+        const BLUR_RADIUS = 22;   // px — strength of the Gaussian blur
+        const MIN_CONFIDENCE = 0.4;  // 0–1 — detection score threshold (lower = catches more faces)
+        const FEATHER_RADIUS = 34;   // px — softness of the blur edge (higher = more feather)
+        const MODEL_URL = './models';
+
+        // ─── State ───────────────────────────────────────────────────────────────────
+        let originalImage = null;
+        let modelsLoaded = false;
+
+        // ─── DOM refs ────────────────────────────────────────────────────────────────
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const blurBtn = document.getElementById('blurBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const statusPill = document.getElementById('statusPill');
+        const faceBadge = document.getElementById('faceBadge');
+        const imageLabel = document.getElementById('imageLabel');
+        const progressWrap = document.getElementById('progressWrap');
+        const progressBar = document.getElementById('progressBar');
+        const logOutput = document.getElementById('logOutput');
+
+        // ─── Logging ─────────────────────────────────────────────────────────────────
+        function log(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            const t = new Date().toLocaleTimeString('en', { hour12: false });
+            line.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+            logOutput.appendChild(line);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function setStatus(text, cls = '') {
+            statusPill.textContent = text;
+            statusPill.className = 'status-pill ' + cls;
+        }
+
+        function setProgress(pct) {
+            progressWrap.style.display = 'block';
+            progressBar.style.width = pct + '%';
+            if (pct >= 100) setTimeout(() => { progressWrap.style.display = 'none'; }, 600);
+        }
+
+        // ─── Load models ─────────────────────────────────────────────────────────────
+        async function loadModels() {
+            setStatus('Loading models…', 'working');
+            log('Loading SSD MobileNet v1 + FaceLandmark68 models…', 'info');
+
+            const tryLoad = async (url) => {
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(url),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(url),
+                ]);
+            };
+
+            try {
+                await tryLoad(MODEL_URL);
+                log('Models loaded from local /models folder ✓', 'success');
+            } catch {
+                log('Local models not found — trying CDN…', 'warn');
+                try {
+                    const CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                    await tryLoad(CDN);
+                    log('Models loaded from CDN ✓', 'success');
+                } catch (err) {
+                    log('Failed to load models: ' + err.message, 'error');
+                    setStatus('Model Error', 'error-state');
+                    return false;
+                }
+            }
+
+            modelsLoaded = true;
+            setStatus('Ready', 'ready');
+            log('FaceShield ready — upload an image.', 'success');
+            return true;
+        }
+
+        // ─── Wait for face-api then init ─────────────────────────────────────────────
+        function waitForFaceApi(cb, attempts = 0) {
+            if (typeof faceapi !== 'undefined') { cb(); return; }
+            if (attempts > 40) { log('face-api.js failed to load from CDN', 'error'); setStatus('Load Error', 'error-state'); return; }
+            setTimeout(() => waitForFaceApi(cb, attempts + 1), 250);
+        }
+
+        window.addEventListener('load', () => {
+            waitForFaceApi(loadModels);
+        });
+
+        // ─── Drag & Drop ─────────────────────────────────────────────────────────────
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) handleFile(file);
+        });
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+        // ─── Handle image upload ──────────────────────────────────────────────────────
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    ctx.drawImage(img, 0, 0);
+                    canvasWrapper.classList.add('visible');
+                    blurBtn.disabled = !modelsLoaded;
+                    downloadBtn.disabled = true;
+                    resetBtn.style.display = 'inline-flex';
+                    faceBadge.textContent = '0 faces';
+                    imageLabel.textContent = file.name;
+                    log(`Image loaded: ${file.name} (${img.naturalWidth}×${img.naturalHeight}px)`, 'info');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ─── Detect & blur ───────────────────────────────────────────────────────────
+        blurBtn.addEventListener('click', async () => {
+            if (!originalImage || !modelsLoaded) return;
+
+            blurBtn.disabled = true;
+            setStatus('Detecting…', 'working');
+            log('Running SSD MobileNet v1 + Landmark68…', 'info');
+            setProgress(15);
+
+            // Restore original
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(originalImage, 0, 0);
+            setProgress(30);
+
+            let detections;
+            try {
+                detections = await faceapi
+                    .detectAllFaces(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence: MIN_CONFIDENCE }))
+                    .withFaceLandmarks();
+            } catch (err) {
+                log('Detection error: ' + err.message, 'error');
+                setStatus('Error', 'error-state');
+                blurBtn.disabled = false;
+                return;
+            }
+
+            setProgress(70);
+            log(`Detected ${detections.length} face(s)`, detections.length ? 'success' : 'warn');
+            faceBadge.textContent = detections.length + (detections.length === 1 ? ' face' : ' faces');
+
+            if (detections.length === 0) {
+                log('No faces found. Try a clearer photo or lower MIN_CONFIDENCE.', 'warn');
+                setStatus('No faces found', 'error-state');
+                blurBtn.disabled = false;
+                setProgress(100);
+                return;
+            }
+
+            // ── Pre-render a fully-blurred version of the whole image ──────────────
+            // True separable Gaussian convolution (H pass then V pass) — accurate,
+            // consistent across all browsers, no CSS filter edge fading at image borders.
+            const blurredCanvas = document.createElement('canvas');
+            blurredCanvas.width = canvas.width;
+            blurredCanvas.height = canvas.height;
+            const blurredCtx = blurredCanvas.getContext('2d');
+            blurredCtx.drawImage(originalImage, 0, 0);
+            const srcData = blurredCtx.getImageData(0, 0, canvas.width, canvas.height);
+            const gaussData = separableGaussianBlur(srcData.data, canvas.width, canvas.height, BLUR_RADIUS);
+            blurredCtx.putImageData(new ImageData(gaussData, canvas.width, canvas.height), 0, 0);
+
+            // ── For each face: draw feathered blur box ──────
+            detections.forEach((det, i) => {
+                const box = det.detection.box;
+
+                // Expand bounding box slightly for a comfortable margin around the face
+                const padX = box.width * 0.15;
+                const padY = box.height * 0.15;
+                const fx = Math.max(0, box.x - padX);
+                const fy = Math.max(0, box.y - padY * 1.5); // extra padding towards the top for the forehead
+                const fw = Math.min(canvas.width - fx, box.width + padX * 2);
+                const fh = Math.min(canvas.height - fy, box.height + padY * 2.5);
+
+                // 1. Mask canvas: opaque inside, transparent outside
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = canvas.width;
+                maskCanvas.height = canvas.height;
+                const maskCtx = maskCanvas.getContext('2d');
+
+                // Clear to transparent black (alpha = 0)
+                maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+
+                // Draw the blur region as a solid opaque rectangle
+                maskCtx.fillStyle = '#fff';
+                maskCtx.fillRect(fx, fy, fw, fh);
+
+                // 2. Feather the mask by Gaussian-blurring it
+                const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                const featheredData = separableGaussianBlur(maskData.data, maskCanvas.width, maskCanvas.height, FEATHER_RADIUS);
+                const featherCanvas = document.createElement('canvas');
+                featherCanvas.width = canvas.width;
+                featherCanvas.height = canvas.height;
+                const featherCtx = featherCanvas.getContext('2d');
+                featherCtx.putImageData(new ImageData(featheredData, featherCanvas.width, featherCanvas.height), 0, 0);
+
+                // 3. Face patch canvas: blurred image, clipped using feathered mask
+                const patchCanvas = document.createElement('canvas');
+                patchCanvas.width = canvas.width;
+                patchCanvas.height = canvas.height;
+                const patchCtx = patchCanvas.getContext('2d');
+
+                // Draw blurred image
+                patchCtx.drawImage(blurredCanvas, 0, 0);
+
+                // Apply feathered mask as alpha using 'destination-in'
+                patchCtx.globalCompositeOperation = 'destination-in';
+                patchCtx.drawImage(featherCanvas, 0, 0);
+                patchCtx.globalCompositeOperation = 'source-over';
+
+                // 4. Composite the masked blur patch onto the main canvas
+                ctx.drawImage(patchCanvas, 0, 0);
+
+                log(`Face ${i + 1}: score=${det.detection.score.toFixed(2)}`, 'info');
+            });
+
+            setProgress(100);
+            setStatus('Done', 'ready');
+            downloadBtn.disabled = false;
+            blurBtn.disabled = false;
+            log('All faces blurred ✓', 'success');
+        });
+
+
+        // ─── Separable Gaussian Blur ──────────────────────────────────────────────────
+        // True 2-pass convolution: horizontal then vertical.
+        // O(n × kRadius) per pass — equivalent to a full 2D Gaussian but far faster.
+        // Kernel: e^(−x²/2σ²), σ = radius/2.5, half-width = ceil(3σ).
+        // Edge pixels use clamp-to-edge padding — no dark borders.
+        function separableGaussianBlur(src, w, h, radius) {
+            const sigma = Math.max(1, radius / 2.5);
+            const kHalf = Math.ceil(sigma * 3);
+            const kLen = kHalf * 2 + 1;
+            const kernel = new Float32Array(kLen);
+            let kSum = 0;
+            for (let i = 0; i < kLen; i++) {
+                const x = i - kHalf;
+                kernel[i] = Math.exp(-(x * x) / (2 * sigma * sigma));
+                kSum += kernel[i];
+            }
+            for (let i = 0; i < kLen; i++) kernel[i] /= kSum;  // normalise
+
+            const tmp = new Float32Array(src.length);
+            const out = new Uint8ClampedArray(src.length);
+
+            // ── Horizontal pass: src → tmp ──────────────────────────────────────────
+            for (let row = 0; row < h; row++) {
+                for (let col = 0; col < w; col++) {
+                    let r = 0, g = 0, b = 0, a = 0;
+                    for (let k = -kHalf; k <= kHalf; k++) {
+                        const sc = Math.min(w - 1, Math.max(0, col + k));
+                        const idx = (row * w + sc) * 4;
+                        const wt = kernel[k + kHalf];
+                        r += src[idx] * wt;
+                        g += src[idx + 1] * wt;
+                        b += src[idx + 2] * wt;
+                        a += src[idx + 3] * wt;
+                    }
+                    const oi = (row * w + col) * 4;
+                    tmp[oi] = r; tmp[oi + 1] = g; tmp[oi + 2] = b; tmp[oi + 3] = a;
+                }
+            }
+
+            // ── Vertical pass: tmp → out ────────────────────────────────────────────
+            for (let col = 0; col < w; col++) {
+                for (let row = 0; row < h; row++) {
+                    let r = 0, g = 0, b = 0, a = 0;
+                    for (let k = -kHalf; k <= kHalf; k++) {
+                        const sr = Math.min(h - 1, Math.max(0, row + k));
+                        const idx = (sr * w + col) * 4;
+                        const wt = kernel[k + kHalf];
+                        r += tmp[idx] * wt;
+                        g += tmp[idx + 1] * wt;
+                        b += tmp[idx + 2] * wt;
+                        a += tmp[idx + 3] * wt;
+                    }
+                    const oi = (row * w + col) * 4;
+                    out[oi] = r; out[oi + 1] = g; out[oi + 2] = b; out[oi + 3] = a;
+                }
+            }
+            return out;
+        }
+
+        // ─── Download ─────────────────────────────────────────────────────────────────
+        downloadBtn.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.download = 'faceshield-output.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            log('Image downloaded as faceshield-output.png', 'success');
+        });
+
+        // ─── Reset ────────────────────────────────────────────────────────────────────
+        resetBtn.addEventListener('click', () => {
+            if (originalImage) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(originalImage, 0, 0);
+                downloadBtn.disabled = true;
+                faceBadge.textContent = '0 faces';
+                log('Canvas reset to original image.', 'info');
+                setStatus('Ready', 'ready');
+            }
+        });
+    </script>
+</body>
+
+</html>
