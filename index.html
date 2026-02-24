@@ -459,6 +459,76 @@
             width: 0%;
             transition: width 0.4s ease;
         }
+
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 24px;
+            padding: 16px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .slider-control label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .slider-control input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 1;
+            height: 4px;
+            background: var(--border);
+            border-radius: 99px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg);
+            box-shadow: 0 0 8px rgba(0, 229, 160, 0.4);
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .slider-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg);
+            box-shadow: 0 0 8px rgba(0, 229, 160, 0.4);
+            cursor: pointer;
+        }
+
+        .slider-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent);
+            min-width: 42px;
+            text-align: right;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
@@ -494,6 +564,12 @@
             <button class="btn btn-primary" id="blurBtn" disabled>⬡ Detect &amp; Blur Faces</button>
             <button class="btn btn-secondary" id="downloadBtn" disabled>↓ Download Result</button>
             <button class="btn btn-secondary" id="resetBtn" style="display:none">↺ Reset</button>
+        </div>
+
+        <div class="slider-control">
+            <label for="blurRange">Blur Strength</label>
+            <input type="range" id="blurRange" min="5" max="100" value="45" step="1">
+            <span class="slider-value" id="blurValue">45px</span>
         </div>
 
         <div class="canvas-wrapper" id="canvasWrapper">
@@ -575,7 +651,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script>
         // ─── Configuration ───────────────────────────────────────────────────────────
-        const BLUR_RADIUS = 22;   // px — strength of the Gaussian blur
+        let BLUR_RADIUS = 45;   // px — strength of the Gaussian blur
         const MIN_CONFIDENCE = 0.4;  // 0–1 — detection score threshold (lower = catches more faces)
         const FEATHER_RADIUS = 34;   // px — softness of the blur edge (higher = more feather)
         const MODEL_URL = './models';
@@ -599,6 +675,14 @@
         const progressWrap = document.getElementById('progressWrap');
         const progressBar = document.getElementById('progressBar');
         const logOutput = document.getElementById('logOutput');
+        const blurRange = document.getElementById('blurRange');
+        const blurValue = document.getElementById('blurValue');
+
+        // ─── Blur slider ─────────────────────────────────────────────────────────────
+        blurRange.addEventListener('input', () => {
+            BLUR_RADIUS = parseInt(blurRange.value);
+            blurValue.textContent = BLUR_RADIUS + 'px';
+        });
 
         // ─── Logging ─────────────────────────────────────────────────────────────────
         function log(msg, type = 'info') {
@@ -756,8 +840,8 @@
                 const box = det.detection.box;
 
                 // Expand bounding box slightly for a comfortable margin around the face
-                const padX = box.width * 0.15;
-                const padY = box.height * 0.15;
+                const padX = box.width * 0.2; // 15% padding on the left and right
+                const padY = box.height * 0.2;// 15% padding on the left and right
                 const fx = Math.max(0, box.x - padX);
                 const fy = Math.max(0, box.y - padY * 1.5); // extra padding towards the top for the forehead
                 const fw = Math.min(canvas.width - fx, box.width + padX * 2);
